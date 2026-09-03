@@ -1,0 +1,1 @@
+export const API_GATEWAY = 'http://192.168.0.110:8085';
