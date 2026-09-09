@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Mail, Lock, Eye, EyeOff, ArrowRight, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { Login } from '../lib/auth/authService';
 
 export default function LoginForm({ onLoginSuccess }) {
   const [formData, setFormData] = useState({
@@ -48,39 +49,16 @@ export default function LoginForm({ onLoginSuccess }) {
     setIsLoading(true);
     setAuthStatus(null);
 
-  //   try {
-  //     // Attempt backend login call via AuthService microservice client
-  //     const response = await authService.login({
-  //       username: formData.email,
-  //       password: formData.password
-  //     });
+    try {
+      const response = await Login(formData.email, formData.password);
 
-  //     setAuthStatus({
-  //       type: 'success',
-  //       message: 'Welcome back! Authentication successful.'
-  //     });
-  //     if (onLoginSuccess) {
-  //       onLoginSuccess(response || formData);
-  //     }
-  //   } catch (err) {
-  //     // Fallback for offline/demo environment testing
-  //     if (formData.email && formData.password) {
-  //       setAuthStatus({
-  //         type: 'success',
-  //         message: 'Demo Authentication successful (Backend offline or local mode).'
-  //       });
-  //       if (onLoginSuccess) {
-  //         onLoginSuccess(formData);
-  //       }
-  //     } else {
-  //       setAuthStatus({
-  //         type: 'error',
-  //         message: err.message || 'Invalid credentials. Please check email and password.'
-  //       });
-  //     }
-  //   } finally {
-  //     setIsLoading(false);
-  //   }
+      if(response && response.status !== 'ok'){
+        console.log("error");
+      }
+      console.log(response);
+    } catch(err){
+      console.log(err);
+    }
   };
 
   return (
