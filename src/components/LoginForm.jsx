@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Lock, Eye, EyeOff, ArrowRight, Check, AlertCircle, Loader2, AtSign } from 'lucide-react';
+import flowalertAppIcon from '../assets/icons/flowalert-app-icon.svg';
 import { Login } from '../lib/auth/authService';
 
 export default function LoginForm({ onLoginSuccess }) {
@@ -84,6 +85,16 @@ export default function LoginForm({ onLoginSuccess }) {
 
   return (
     <div className="w-full">
+      {/* Mobile Brand Logo */}
+      <div className="lg:hidden flex items-center gap-2.5 mb-5">
+        <img
+          src={flowalertAppIcon}
+          alt="TaskFlow Logo"
+          className="w-8 h-8 rounded-lg shadow-sm shadow-emerald-500/20 object-contain"
+        />
+        <span className="font-bold text-lg text-slate-900 tracking-tight">TaskFlow</span>
+      </div>
+
       {/* Card Header */}
       <div className="text-left mb-6">
         <h2 className="text-[28px] sm:text-[32px] font-bold text-slate-900 tracking-tight leading-tight">

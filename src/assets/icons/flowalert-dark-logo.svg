@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 220" width="880" height="220">
+  <defs>
+    <linearGradient id="logoIconGradDark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#059669" />
+      <stop offset="100%" stop-color="#10b981" />
+    </linearGradient>
+    <linearGradient id="textAccentGradDark" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#34d399" />
+      <stop offset="100%" stop-color="#2dd4bf" />
+    </linearGradient>
+    <filter id="badgeGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="16" flood-color="#10b981" flood-opacity="0.45" />
+    </filter>
+  </defs>
+
+  <!-- Dark Background container -->
+  <rect width="880" height="220" rx="24" fill="#0b1120" />
+
+  <!-- Logo Mark Icon -->
+  <g transform="translate(30, 30)">
+    <rect x="0" y="0" width="160" height="160" rx="42" fill="url(#logoIconGradDark)" filter="url(#badgeGlow)" />
+    
+    <circle cx="80" cy="80" r="58" fill="none" stroke="#ffffff" stroke-width="2" opacity="0.25" stroke-dasharray="5 5" />
+    
+    <circle cx="80" cy="46" r="6" fill="#ffffff" />
+    <path d="M 80 54
+             C 63 54, 53 67, 53 90
+             C 53 103, 46 110, 42 114
+             C 39 117, 41 120, 46 120
+             L 114 120
+             C 119 120, 121 117, 118 114
+             C 114 110, 107 103, 107 90
+             C 107 67, 97 54, 80 54 Z"
+          fill="#ffffff" />
+    <path d="M 70 125 C 71 132, 75 137, 80 137 C 85 137, 89 132, 90 125 Z" fill="#ffffff" opacity="0.92" />
+    
+    <circle cx="112" cy="58" r="11" fill="#34d399" stroke="#065f46" stroke-width="3" />
+    <circle cx="112" cy="58" r="5" fill="#ffffff" />
+  </g>
+
+  <!-- Typography: FlowAlert for Dark Mode -->
+  <g transform="translate(225, 125)">
+    <text x="0" y="0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="76" font-weight="800" fill="#f8fafc" letter-spacing="-1.5">Flow</text>
+    <text x="175" y="0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="76" font-weight="800" fill="url(#textAccentGradDark)" letter-spacing="-1.5">Alert</text>
+    <text x="4" y="38" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="20" font-weight="600" fill="#94a3b8" letter-spacing="4">NOTIFICATION &amp; MODAL SYSTEM</text>
+  </g>
+</svg>

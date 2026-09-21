@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import LoginForm from '../components/LoginForm';
 import Footer from '../components/Footer';
+import flowalertAppIcon from '../assets/icons/flowalert-app-icon.svg';
 import { Users, CheckCircle2 } from 'lucide-react';
 
 export default function Login() {
@@ -25,12 +26,11 @@ export default function Login() {
       <header className="relative z-10 w-full max-w-7xl mx-auto px-6 py-6 sm:px-8 flex items-center justify-between">
         {/* Brand Logo */}
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#00c875] flex items-center justify-center shadow-md shadow-emerald-500/20 shrink-0">
-            <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="3.2" />
-              <path d="M12 2.5a2 2 0 0 1 2 2v.3a2 2 0 0 0 1.4 1.9 2 2 0 0 1 1.4 1.4 2 2 0 0 0 1.9 1.4h.3a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.3a2 2 0 0 0-1.9 1.4 2 2 0 0 1-1.4 1.4 2 2 0 0 0-1.4 1.9v.3a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.3a2 2 0 0 0-1.4-1.9 2 2 0 0 1-1.4-1.4 2 2 0 0 0-1.9-1.4h-.3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.3a2 2 0 0 0 1.9-1.4 2 2 0 0 1 1.4-1.4 2 2 0 0 0 1.4-1.9v-.3a2 2 0 0 1 2-2z" />
-            </svg>
-          </div>
+          <img
+            src={flowalertAppIcon}
+            alt="FlowAlert Logo"
+            className="w-10 h-10 rounded-xl shadow-md shadow-emerald-500/20 shrink-0 object-contain hover:scale-105 transition-transform"
+          />
           <span className="text-xl font-bold tracking-tight text-slate-900">
             TaskFlow
           </span>
@@ -203,7 +203,6 @@ export default function Login() {
               )}
             </div>
           </div>
-
         </div>
       </main>
 
