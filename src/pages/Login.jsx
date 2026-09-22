@@ -4,11 +4,14 @@ import Footer from '../components/Footer';
 import flowalertAppIcon from '../assets/icons/flowalert-app-icon.svg';
 import { Users, CheckCircle2 } from 'lucide-react';
 
-export default function Login() {
+export default function Login({ onLoginSuccess }) {
   const [userSession, setUserSession] = useState(null);
 
   const handleLoginSuccess = (userData) => {
     setUserSession(userData);
+    if (onLoginSuccess) {
+      onLoginSuccess(userData);
+    }
   };
 
   const handleLogout = () => {
