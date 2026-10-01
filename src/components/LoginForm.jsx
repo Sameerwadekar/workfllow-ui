@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { Lock, Eye, EyeOff, ArrowRight, Check, AlertCircle, Loader2, AtSign } from 'lucide-react';
-import flowalertAppIcon from '../assets/icons/flowalert-app-icon.svg';
-import { Login } from '../lib/auth/authService';
+import { useDispatch } from 'react-redux';
+import { setUser } from '../features/userSlice';
+import { Login, getMe } from '../lib/auth/authService';
 
 export default function LoginForm({ onLoginSuccess }) {
+  const dispatch = useDispatch();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -53,48 +55,52 @@ export default function LoginForm({ onLoginSuccess }) {
 
     try {
       const response = await Login(formData.email, formData.password);
-      if (response && response.status === 'ok') {
-        if (onLoginSuccess) {
-          onLoginSuccess(response.data || { email: formData.email });
-        }
-      } else {
-        // Fallback or demo login support if backend returns error
-        if (onLoginSuccess) {
-          onLoginSuccess({ email: formData.email });
-        }
+      const tokenData = response?.data?.data || response?.data;
+      const accessToken = tokenData?.accessToken;
+      const refreshToken = tokenData?.refreshToken;
+
+      if (accessToken) {
+        localStorage.setItem('accessToken', accessToken);
+      }
+      if (refreshToken) {
+        localStorage.setItem('refreshToken', refreshToken);
+      }
+
+      // Fetch user profile and permissions from /users/me
+      let userProfile = null;
+      try {
+        const meResponse = await getMe();
+        userProfile = meResponse?.data?.data || meResponse?.data;
+      } catch (meErr) {
+        console.error('Error fetching /users/me profile:', meErr);
+      }
+
+      if (userProfile) {
+        dispatch(setUser(userProfile));
+      }
+
+      if (onLoginSuccess) {
+        onLoginSuccess(userProfile || { email: formData.email });
       }
     } catch (err) {
-      console.warn('Backend login warning:', err);
-      // For development/demo preview: still allow user flow if backend is offline or unreachable
-      if (onLoginSuccess) {
-        onLoginSuccess({ email: formData.email });
-      } else {
-        setAuthStatus({
-          type: 'error',
-          message: err?.response?.data?.message || 'Unable to sign in. Please verify your credentials.'
-        });
-      }
+      console.error('Backend login failed:', err);
+      setAuthStatus({
+        type: 'error',
+        message:
+          err?.response?.data?.message ||
+          err?.response?.message ||
+          err?.message ||
+          'Unable to sign in. Please verify your credentials.'
+      });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleOAuthClick = (provider) => {
-    alert(`${provider} authentication flow initiated.`);
-  };
+
 
   return (
     <div className="w-full">
-      {/* Mobile Brand Logo */}
-      <div className="lg:hidden flex items-center gap-2.5 mb-5">
-        <img
-          src={flowalertAppIcon}
-          alt="TaskFlow Logo"
-          className="w-8 h-8 rounded-lg shadow-sm shadow-emerald-500/20 object-contain"
-        />
-        <span className="font-bold text-lg text-slate-900 tracking-tight">TaskFlow</span>
-      </div>
-
       {/* Card Header */}
       <div className="text-left mb-6">
         <h2 className="text-[28px] sm:text-[32px] font-bold text-slate-900 tracking-tight leading-tight">
@@ -106,9 +112,9 @@ export default function LoginForm({ onLoginSuccess }) {
       </div>
 
       {/* Social SSO Buttons */}
-      <div className="grid grid-cols-2 gap-3 mb-6">
+      {/* <div className="grid grid-cols-2 gap-3 mb-6">
         {/* Google SSO Button */}
-        <button
+        {/* <button
           type="button"
           onClick={() => handleOAuthClick('Google')}
           className="flex items-center justify-center gap-2.5 py-2.5 px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50/80 active:bg-slate-100 transition text-sm font-medium text-slate-700 shadow-xs cursor-pointer"
@@ -120,10 +126,10 @@ export default function LoginForm({ onLoginSuccess }) {
             <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
           </svg>
           <span>Google SSO</span>
-        </button>
+        </button> */}
 
         {/* Apple ID Button */}
-        <button
+        {/* <button
           type="button"
           onClick={() => handleOAuthClick('Apple ID')}
           className="flex items-center justify-center gap-2.5 py-2.5 px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50/80 active:bg-slate-100 transition text-sm font-medium text-slate-700 shadow-xs cursor-pointer"
@@ -132,16 +138,16 @@ export default function LoginForm({ onLoginSuccess }) {
             <path d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.12-9.28 6.23-14.42 6.35-3.69 0-8.14-1.05-13.32-3.18-5.19-2.12-9.97-3.17-14.34-3.17-4.58 0-9.49 1.05-14.75 3.17-5.26 2.13-9.5 3.24-12.74 3.35-4.35.13-9.16-1.9-14.42-6.08-3.69-3.04-7.67-7.86-11.96-14.43-5.65-8.5-10.15-18.42-13.51-29.74-3.36-11.33-5.04-22.39-5.04-33.19 0-14.37 3.58-26.47 10.73-36.3 7.15-9.83 16.38-14.88 27.69-15.15 4.8 0 10.02 1.26 15.66 3.78 5.64 2.52 9.27 3.84 10.89 3.96 1.83-.24 5.6-1.63 11.32-4.19 5.72-2.55 10.79-3.72 15.2-3.51 10.89.65 19.82 4.67 26.79 12.05-9.47 5.76-14.07 13.91-13.79 24.45.28 8.16 3.4 15.02 9.35 20.57 5.95 5.56 12.98 8.78 21.09 9.68-2.2 6.54-4.87 13.23-8.02 20.08zM119.22 31.84c0-7.39 2.6-14.09 7.79-20.12 5.19-6.02 11.53-9.93 19.03-11.72.33 1.19.49 2.28.49 3.26 0 7.39-2.73 14.18-8.19 20.37-5.46 6.19-11.9 10.05-19.34 11.58-.22-1.08-.38-2.2-.49-3.37z"/>
           </svg>
           <span>Apple ID</span>
-        </button>
-      </div>
+        </button> */}
+      {/* </div> */}
 
       {/* Divider */}
-      <div className="relative flex items-center justify-center my-6">
+      {/* <div className="relative flex items-center justify-center my-6">
         <div className="border-t border-slate-200/80 w-full" />
         <span className="absolute bg-white px-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
           Or continue with email
         </span>
-      </div>
+      </div> */}
 
       {/* Alert Banner if any error */}
       {authStatus && (

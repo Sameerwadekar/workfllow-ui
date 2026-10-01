@@ -1,9 +1,16 @@
 import React from 'react';
 import { Search, Bell, MessageSquare, Menu } from 'lucide-react';
+import { useSelector } from 'react-redux';
+import { selectUser } from '../../features/userSlice';
 import { DASHBOARD_DATA } from '../../data/dashboardData';
 
 export default function Header({ onToggleSidebar, onSearch }) {
-  const { user } = DASHBOARD_DATA;
+  const reduxUser = useSelector(selectUser);
+  const user = {
+    ...DASHBOARD_DATA.user,
+    name: reduxUser?.name || DASHBOARD_DATA.user.name,
+    email: reduxUser?.email || DASHBOARD_DATA.user.email
+  };
 
   return (
     <header className="w-full flex items-center justify-between gap-4 pb-6">
