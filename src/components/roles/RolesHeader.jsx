@@ -1,17 +1,33 @@
 import React from 'react';
-import { Search, Bell, MessageSquare, ChevronDown, Menu } from 'lucide-react';
+import { useSelector } from 'react-redux';
+import { Search, Bell, MessageSquare, Menu } from 'lucide-react';
 import { ROLES_DATA } from '../../data/rolesData';
+import { selectUser } from '../../features/userSlice';
 
 export default function RolesHeader({
   onToggleSidebar,
   searchQuery = '',
   onSearchChange
 }) {
-  const { workspace, currentUser } = ROLES_DATA;
+  const { workspace, currentUser: defaultUser } = ROLES_DATA;
+  const reduxUser = useSelector(selectUser);
+  const currentUser = {
+    name: reduxUser?.name || defaultUser.name,
+    email: reduxUser?.email || defaultUser.email,
+    initials: reduxUser?.name
+      ? reduxUser.name
+          .split(' ')
+          .map((n) => n[0])
+          .join('')
+          .toUpperCase()
+          .slice(0, 2)
+      : defaultUser.initials,
+    hasUnreadNotifications: defaultUser.hasUnreadNotifications
+  };
 
   return (
     <header className="w-full flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-100">
-      {/* Left: Mobile Toggle + Company Switcher + Search + Active Roles Pill */}
+      {/* Left: Mobile Toggle + Search + Active Roles Pill */}
       <div className="flex flex-wrap items-center gap-3.5 flex-1 min-w-0">
         {/* Mobile menu toggle */}
         <button
@@ -22,24 +38,6 @@ export default function RolesHeader({
         >
           <Menu className="w-5 h-5" />
         </button>
-
-        {/* Company Dropdown Card */}
-        <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl border border-slate-200/90 bg-white shadow-2xs cursor-pointer hover:border-slate-300 transition shrink-0">
-          <div className="w-7 h-7 rounded-lg bg-[#00c875] text-white font-bold text-xs flex items-center justify-center tracking-tight">
-            {workspace.initials}
-          </div>
-          <div className="flex flex-col text-left">
-            <div className="flex items-center gap-1">
-              <span className="text-xs sm:text-sm font-bold text-slate-800 tracking-tight leading-none">
-                {workspace.name}
-              </span>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-            </div>
-            <span className="text-[10px] font-extrabold text-[#00c875] tracking-wider leading-none mt-1">
-              {workspace.tier}
-            </span>
-          </div>
-        </div>
 
         {/* Search Bar */}
         <div className="relative flex-1 min-w-[200px] max-w-xs">

@@ -9,7 +9,7 @@ import {
   selectUserPermissionNames
 } from './features/userSlice';
 import { getMe } from './lib/auth/authService';
-import { onAuthFailure } from './lib/ApiClient';
+import { onAuthFailure, getFreshAccessToken, clearTokens } from './lib/ApiClient';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import TenantsManagement from './pages/TenantsManagement';
@@ -33,8 +33,7 @@ function App() {
   useEffect(() => {
     const unsubscribe = onAuthFailure(() => {
       dispatch(clearUser());
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
+      clearTokens();
       navigate('/login', { replace: true });
     });
     return () => unsubscribe();
@@ -44,7 +43,10 @@ function App() {
   useEffect(() => {
     const initializeAuth = async () => {
       const accessToken = localStorage.getItem('accessToken');
-      if (!accessToken) {
+      const refreshToken = localStorage.getItem('refreshToken');
+
+      // If neither token is present, user is an unauthenticated guest
+      if (!accessToken && !refreshToken) {
         dispatch(clearUser());
         setIsInitializing(false);
         return;
@@ -52,6 +54,9 @@ function App() {
 
       dispatch(setLoading(true));
       try {
+        // Proactively ensure access token is fresh before calling /users/me
+        await getFreshAccessToken();
+
         const response = await getMe();
         const profileData = response?.data?.data || response?.data;
 
@@ -59,14 +64,12 @@ function App() {
           dispatch(setUser(profileData));
         } else {
           dispatch(clearUser());
-          localStorage.removeItem('accessToken');
-          localStorage.removeItem('refreshToken');
+          clearTokens();
         }
       } catch (err) {
-        console.error('Failed to restore session on reload:', err);
+        console.warn('Session restoration failed:', err?.message || err);
         dispatch(clearUser());
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
+        clearTokens();
       } finally {
         dispatch(setLoading(false));
         setIsInitializing(false);

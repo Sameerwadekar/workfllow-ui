@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { API_GATEWAY } from './constant.js';
+import { isTokenExpired } from './auth/tokenUtils.js';
 
 // Registered callbacks for when authentication completely fails (e.g. token expired and refresh failed)
 let authFailureListeners = [];
@@ -11,7 +12,7 @@ export const onAuthFailure = (callback) => {
   };
 };
 
-const triggerAuthFailure = () => {
+export const triggerAuthFailure = () => {
   authFailureListeners.forEach((cb) => {
     try {
       cb();
@@ -21,7 +22,7 @@ const triggerAuthFailure = () => {
   });
 };
 
-const clearTokens = () => {
+export const clearTokens = () => {
   localStorage.removeItem('accessToken');
   localStorage.removeItem('refreshToken');
 };
@@ -36,99 +37,42 @@ const ApiClient = axios.create({
   }
 });
 
-// Request Interceptor: Attach JWT Bearer token to headers
-ApiClient.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('accessToken');
-    if (token) {
-      config.headers = config.headers || {};
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+// Singleton in-flight refresh promise (Synchronized Mutex)
+let refreshPromise = null;
 
-// Response Interceptor: Handle 401 Unauthorized by calling /users/refresh with refreshToken
-let isRefreshing = false;
-let failedQueue = [];
+/**
+ * Returns a valid access token.
+ * If the current access token is expired or expiring within 60s buffer,
+ * silently refreshes using the refresh token.
+ * Multiple concurrent callers share the exact same refresh promise (Mutex).
+ */
+export const getFreshAccessToken = async () => {
+  const accessToken = localStorage.getItem('accessToken');
+  const refreshToken = localStorage.getItem('refreshToken');
 
-const processQueue = (error, token = null) => {
-  failedQueue.forEach((prom) => {
-    if (error) {
-      prom.reject(error);
-    } else {
-      prom.resolve(token);
-    }
-  });
-  failedQueue = [];
-};
+  // 1. If accessToken exists and is still valid (not expired within 60s buffer), use it
+  if (accessToken && !isTokenExpired(accessToken, 60)) {
+    return accessToken;
+  }
 
-ApiClient.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
+  // 2. If no refreshToken is available, session is completely unauthenticated
+  if (!refreshToken) {
+    clearTokens();
+    triggerAuthFailure();
+    throw new Error('No refresh token available');
+  }
 
-    // Check if error response is 401 Unauthorized or backend unauthenticated response
-    const isAuthError =
-      error.response &&
-      (error.response.status === 401 ||
-        (error.response.status === 404 &&
-          error.response.data?.message === 'User is not authenticated'));
+  // 3. Mutex: If a refresh operation is already in flight, return the existing promise
+  if (refreshPromise) {
+    return refreshPromise;
+  }
 
-    if (!isAuthError) {
-      return Promise.reject(error);
-    }
-
-    // Do not attempt refresh on unretriable requests or if already retried
-    if (!originalRequest || originalRequest._retry) {
-      return Promise.reject(error);
-    }
-
-    const requestUrl = originalRequest.url || '';
-
-    // If login attempt failed with 401, do not attempt to refresh
-    if (requestUrl.includes('/users/login')) {
-      return Promise.reject(error);
-    }
-
-    // If refresh itself failed with 401, session is invalid
-    if (requestUrl.includes('/users/refresh')) {
-      clearTokens();
-      triggerAuthFailure();
-      return Promise.reject(error);
-    }
-
-    // If another refresh call is currently pending, queue this request
-    if (isRefreshing) {
-      return new Promise((resolve, reject) => {
-        failedQueue.push({ resolve, reject });
-      })
-        .then((newToken) => {
-          originalRequest.headers = originalRequest.headers || {};
-          originalRequest.headers.Authorization = `Bearer ${newToken}`;
-          return ApiClient(originalRequest);
-        })
-        .catch((err) => Promise.reject(err));
-    }
-
-    originalRequest._retry = true;
-    isRefreshing = true;
-
-    const currentRefreshToken = localStorage.getItem('refreshToken');
-
-    if (!currentRefreshToken) {
-      isRefreshing = false;
-      clearTokens();
-      triggerAuthFailure();
-      return Promise.reject(error);
-    }
-
+  // 4. Create synchronized refresh promise
+  refreshPromise = (async () => {
     try {
-      // Use raw axios to prevent recursive interceptor triggers
-      const refreshResponse = await axios.post(
+      const response = await axios.post(
         `${API_GATEWAY}/users/refresh`,
-        { refreshToken: currentRefreshToken },
+        { refreshToken },
         {
           headers: {
             'Content-Type': 'application/json',
@@ -138,34 +82,100 @@ ApiClient.interceptors.response.use(
         }
       );
 
-      const resData = refreshResponse.data?.data || refreshResponse.data;
+      const resData = response.data?.data || response.data;
       const newAccessToken = resData?.accessToken;
-      const newRefreshToken = resData?.refreshToken || currentRefreshToken;
+      const newRefreshToken = resData?.refreshToken || refreshToken;
 
       if (!newAccessToken) {
         throw new Error('Refresh response missing access token');
       }
 
-      // Store plain tokens directly
       localStorage.setItem('accessToken', newAccessToken);
       if (newRefreshToken) {
         localStorage.setItem('refreshToken', newRefreshToken);
       }
 
-      // Update headers for retrying request
       ApiClient.defaults.headers.common['Authorization'] = `Bearer ${newAccessToken}`;
-      originalRequest.headers = originalRequest.headers || {};
-      originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
-
-      processQueue(null, newAccessToken);
-      isRefreshing = false;
-
-      return ApiClient(originalRequest);
-    } catch (refreshErr) {
-      processQueue(refreshErr, null);
-      isRefreshing = false;
+      return newAccessToken;
+    } catch (err) {
       clearTokens();
       triggerAuthFailure();
+      throw err;
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
+};
+
+const isPublicEndpoint = (url = '') => {
+  return (
+    url.includes('/users/login') ||
+    url.includes('/users/refresh') ||
+    url.includes('/users/register') ||
+    url.includes('/health')
+  );
+};
+
+// Request Interceptor: Proactively ensure valid JWT Bearer token before sending
+ApiClient.interceptors.request.use(
+  async (config) => {
+    const url = config.url || '';
+    if (isPublicEndpoint(url)) {
+      return config;
+    }
+
+    const refreshToken = localStorage.getItem('refreshToken');
+    const accessToken = localStorage.getItem('accessToken');
+
+    if (refreshToken || accessToken) {
+      try {
+        const validToken = await getFreshAccessToken();
+        if (validToken) {
+          config.headers = config.headers || {};
+          config.headers.Authorization = `Bearer ${validToken}`;
+        }
+      } catch (err) {
+        // If refresh fails, let request proceed so response interceptor or caller handles standard error
+      }
+    }
+
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Response Interceptor: Reactive fallback for unexpected 401s (e.g. server revocation or clock drift)
+ApiClient.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    const isAuthError =
+      error.response &&
+      (error.response.status === 401 ||
+        (error.response.status === 404 &&
+          error.response.data?.message === 'User is not authenticated'));
+
+    if (!isAuthError || !originalRequest || originalRequest._retry) {
+      return Promise.reject(error);
+    }
+
+    const requestUrl = originalRequest.url || '';
+    if (isPublicEndpoint(requestUrl)) {
+      return Promise.reject(error);
+    }
+
+    originalRequest._retry = true;
+
+    try {
+      // Force fresh token (will share in-flight promise if another request already triggered it)
+      const newAccessToken = await getFreshAccessToken();
+      originalRequest.headers = originalRequest.headers || {};
+      originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+      return ApiClient(originalRequest);
+    } catch (refreshErr) {
       return Promise.reject(refreshErr);
     }
   }

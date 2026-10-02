@@ -1,18 +1,70 @@
-import React, { useState } from 'react';
-import { FileSpreadsheet, Plus } from 'lucide-react';
-import RolesHeader from '../components/roles/RolesHeader';
-import RolesStats from '../components/roles/RolesStats';
+import React, { useState, useEffect } from 'react';
+import { useOutletContext } from 'react-router-dom';
+import { Plus, Menu, ShieldCheck, CheckCircle2, X } from 'lucide-react';
 import RolesTable from '../components/roles/RolesTable';
 import AddRoleModal from '../components/roles/AddRoleModal';
-import ExportMatrixModal from '../components/roles/ExportMatrixModal';
+import PermissionsCatalogModal from '../components/roles/PermissionsCatalogModal';
+import { ROLES_DATA } from '../data/rolesData';
+import { getRoleStats, createRole } from '../lib/role/roleService';
 
-export default function RolesAndPermissions({ onToggleSidebar }) {
+export default function RolesAndPermissions({ onToggleSidebar: propToggleSidebar }) {
+  let outletCtx = null;
+  try {
+    outletCtx = useOutletContext();
+  } catch {
+    outletCtx = null;
+  }
+  const onToggleSidebar = propToggleSidebar || outletCtx?.onToggleSidebar;
+
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isCatalogOpen, setIsCatalogOpen] = useState(false);
+  const [successMessage, setSuccessMessage] = useState(null);
+  const [errorMessage, setErrorMessage] = useState(null);
+  const [stats, setStats] = useState({
+    activeRoles: ROLES_DATA.workspace?.activeRolesCount || 8,
+    totalUsers: ROLES_DATA.workspace?.totalUsersCount || 142
+  });
 
-  const handleSaveRole = (newRole) => {
-    alert(`New role "${newRole.name}" (${newRole.slug}) configured successfully.`);
+  const refreshStats = () => {
+    getRoleStats()
+      .then((res) => {
+        if (res?.data?.data) {
+          const d = res.data.data;
+          setStats({
+            activeRoles: d.activeRoles ?? d.totalRoles ?? 8,
+            totalUsers: d.totalUsers ?? 142
+          });
+        }
+      })
+      .catch(() => {
+        // Fallback to default stats
+      });
+  };
+
+  useEffect(() => {
+    refreshStats();
+  }, []);
+
+  const handleSaveRole = async (newRole) => {
+    try {
+      const payload = {
+        roleName: newRole.roleName,
+        description: newRole.description,
+        departmentId: newRole.departmentId,
+        status: newRole.status || 'ACTIVE',
+        permissionIds: newRole.permissionIds
+      };
+      await createRole(payload);
+      setSuccessMessage(`Role "${newRole.name}" created successfully.`);
+      setTimeout(() => setSuccessMessage(null), 5000);
+      refreshStats();
+    } catch (err) {
+      console.error('Failed to create role:', err);
+      const msg = err?.response?.data?.message || err?.message || 'Failed to create role.';
+      setErrorMessage(msg);
+      setTimeout(() => setErrorMessage(null), 6000);
+    }
   };
 
   const handleEditRole = (role) => {
@@ -20,77 +72,117 @@ export default function RolesAndPermissions({ onToggleSidebar }) {
   };
 
   const handleViewRole = (role) => {
-    alert(`Viewing details for "${role.name}". Assigned to ${role.assignedUsers.length} seat buckets.`);
+    alert(`Viewing details for "${role.name}". Assigned to ${role.assignedUsers?.length || 0} seat buckets.`);
   };
 
   return (
-    <div className="space-y-7">
-      {/* 1. Top Header Bar */}
-      <RolesHeader
-        onToggleSidebar={onToggleSidebar}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-      />
-
-      {/* 2. Page Title & Action Buttons Row */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-6">
+      {/* Header Bar - matching Departments layout */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight">
-            Roles & Permissions
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
+              Roles & Permissions
+            </h1>
+            {/* Active Roles & Total Users Status Badge */}
+            <div className="hidden sm:inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-slate-200/80 bg-white shadow-2xs text-xs font-semibold text-slate-700">
+              <span className="w-2 h-2 rounded-full bg-[#00c875] animate-pulse" />
+              <span>{stats.activeRoles} Roles Active</span>
+              <span className="text-slate-300">|</span>
+              <span className="text-slate-500 font-medium">{stats.totalUsers} Users</span>
+            </div>
+          </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Manage access control, organizational privileges, and security boundaries across Acme Corp.
+            Manage access control, organizational privileges, and security boundaries.
           </p>
+          {/* Mobile Badge */}
+          <div className="sm:hidden mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-full border border-slate-200/80 bg-white shadow-2xs text-xs font-semibold text-slate-700">
+            <span className="w-2 h-2 rounded-full bg-[#00c875] animate-pulse" />
+            <span>{stats.activeRoles} Roles Active</span>
+            <span className="text-slate-300">|</span>
+            <span className="text-slate-500 font-medium">{stats.totalUsers} Users</span>
+          </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center gap-3 shrink-0">
-          {/* Export Matrix Button */}
+        {/* Action Buttons Up */}
+        <div className="flex items-center gap-3">
+          {onToggleSidebar && (
+            <button
+              type="button"
+              onClick={onToggleSidebar}
+              className="lg:hidden p-2.5 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-slate-900 transition cursor-pointer"
+              title="Open Navigation"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+          )}
+
+          {/* Permissions Catalog Button */}
           <button
             type="button"
-            onClick={() => setIsExportModalOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200/90 bg-white text-slate-700 hover:text-slate-900 hover:bg-slate-50 text-xs sm:text-sm font-semibold shadow-2xs transition cursor-pointer active:scale-98"
+            onClick={() => setIsCatalogOpen(true)}
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-semibold shadow-2xs transition cursor-pointer"
+            title="Browse all granular permissions, descriptions, and functional modules"
           >
-            <FileSpreadsheet className="w-4 h-4 text-slate-500" />
-            <span>Export Matrix</span>
+            <ShieldCheck className="w-4 h-4 text-[#006c49]" />
+            <span>Permissions Catalog</span>
           </button>
 
-          {/* Add New Role Button */}
+          {/* Add Role Button */}
           <button
             type="button"
             onClick={() => setIsAddModalOpen(true)}
-            className="inline-flex items-center gap-2 px-4.5 py-2.5 rounded-xl bg-[#00c875] hover:bg-[#00b368] active:bg-[#009e5c] text-white text-xs sm:text-sm font-bold shadow-md shadow-emerald-500/20 transition cursor-pointer active:scale-98"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#006c49] hover:bg-[#005236] text-white text-xs sm:text-sm font-semibold shadow-md shadow-emerald-700/20 transition cursor-pointer"
           >
-            <Plus className="w-4 h-4 stroke-[3]" />
-            <span>Add New Role</span>
+            <Plus className="w-4 h-4" />
+            <span>Add Role</span>
           </button>
         </div>
       </div>
 
-      {/* 3. 4 Top Metric / Stats Cards */}
-      <section aria-label="Role and Security Metrics">
-        <RolesStats />
-      </section>
+      {/* Alert Notices */}
+      {errorMessage && (
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium flex items-center justify-between animate-in fade-in duration-150">
+          <span>{errorMessage}</span>
+          <button type="button" onClick={() => setErrorMessage(null)} className="cursor-pointer">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
-      {/* 4. Roles Table and Filters */}
+      {successMessage && (
+        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium flex items-center justify-between animate-in fade-in duration-150">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            <span>{successMessage}</span>
+          </div>
+          <button type="button" onClick={() => setSuccessMessage(null)} className="cursor-pointer">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Roles Table (with Search and Filters Flipped Down) */}
       <section aria-label="Roles List and Permissions">
         <RolesTable
           searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
           onEditRole={handleEditRole}
           onViewRole={handleViewRole}
+          onOpenPermissionsCatalog={() => setIsCatalogOpen(true)}
         />
       </section>
 
-      {/* 5. Modals */}
+      {/* Modals */}
       <AddRoleModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         onSave={handleSaveRole}
       />
 
-      <ExportMatrixModal
-        isOpen={isExportModalOpen}
-        onClose={() => setIsExportModalOpen(false)}
+      <PermissionsCatalogModal
+        isOpen={isCatalogOpen}
+        onClose={() => setIsCatalogOpen(false)}
       />
     </div>
   );

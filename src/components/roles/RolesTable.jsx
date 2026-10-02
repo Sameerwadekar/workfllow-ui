@@ -8,15 +8,32 @@ import {
   FileSpreadsheet,
   Lock,
   Pencil,
-  MoreVertical
+  MoreVertical,
+  Search,
+  X,
+  HelpCircle
 } from 'lucide-react';
 import { ROLES_DATA } from '../../data/rolesData';
 
 export default function RolesTable({
-  searchQuery = '',
+  searchQuery: propSearchQuery = '',
+  onSearchChange,
   onEditRole,
-  onViewRole
+  onViewRole,
+  onOpenPermissionsCatalog
 }) {
+  const [internalSearch, setInternalSearch] = useState('');
+  const searchQuery = onSearchChange ? propSearchQuery : internalSearch;
+
+  const handleSearchChange = (val) => {
+    if (onSearchChange) {
+      onSearchChange(val);
+    } else {
+      setInternalSearch(val);
+    }
+    setCurrentPage(1);
+  };
+
   const [selectedCategory, setSelectedCategory] = useState('All Roles');
   const [showInactive, setShowInactive] = useState(false);
   const [activeMenuId, setActiveMenuId] = useState(null);
@@ -154,7 +171,36 @@ export default function RolesTable({
 
   return (
     <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden">
-      {/* Top Filter and Controls Toolbar */}
+      {/* 1. Search Bar Horizontal Row */}
+      <div className="p-4 sm:p-5 border-b border-slate-100 bg-white">
+        <div className="relative w-full max-w-xl">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                handleSearchChange('');
+              }
+            }}
+            placeholder="Search roles, permissions, descriptions..."
+            className="w-full pl-10 pr-9 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:bg-white focus:ring-2 focus:ring-[#006c49]/30 transition-all"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => handleSearchChange('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+              title="Clear search"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* 2. Category Filter Tabs & Status Row */}
       <div className="p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100">
         {/* Category Filter Tabs */}
         <div className="bg-slate-100/70 p-1.5 rounded-2xl flex items-center gap-1 overflow-x-auto scrollbar-none">
@@ -181,7 +227,7 @@ export default function RolesTable({
         </div>
 
         {/* Right Controls: Inactive Checkbox & Counter */}
-        <div className="flex items-center gap-4 text-xs sm:text-sm font-medium">
+        <div className="flex items-center gap-4 text-xs sm:text-sm font-medium shrink-0">
           <label className="flex items-center gap-2 text-slate-600 cursor-pointer select-none">
             <input
               type="checkbox"
@@ -190,7 +236,7 @@ export default function RolesTable({
                 setShowInactive(e.target.checked);
                 setCurrentPage(1);
               }}
-              className="w-4 h-4 rounded border-slate-300 text-[#00c875] focus:ring-[#00c875] accent-[#00c875] cursor-pointer"
+              className="w-4 h-4 rounded border-slate-300 text-[#006c49] focus:ring-[#006c49] accent-[#006c49] cursor-pointer"
             />
             <span>Show Inactive Roles</span>
           </label>
@@ -216,7 +262,20 @@ export default function RolesTable({
                 ASSIGNED USERS
               </th>
               <th scope="col" className="py-4 px-6 font-bold">
-                KEY PERMISSIONS
+                <div className="flex items-center gap-1.5">
+                  <span>KEY PERMISSIONS</span>
+                  {onOpenPermissionsCatalog && (
+                    <button
+                      type="button"
+                      onClick={onOpenPermissionsCatalog}
+                      className="text-slate-400 hover:text-[#006c49] transition cursor-pointer p-0.5"
+                      title="View all system permissions & descriptions"
+                      aria-label="View all system permissions & descriptions"
+                    >
+                      <HelpCircle className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
               </th>
               <th scope="col" className="py-4 px-6 font-bold">
                 STATUS
